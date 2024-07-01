@@ -12,7 +12,6 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { ref, watch } from "vue";
 
-const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
@@ -21,12 +20,46 @@ const camera = new THREE.PerspectiveCamera(
 );
 
 camera.position.z = 5;
-
+camera.position.y = 1;
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0xffffff, 1);
-
+// 开启阴影
+renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xa0a0a0);
+// 远处起雾气
+scene.fog = new THREE.Fog(0xa0a0a0, 10, 50);
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x8d8d8d, 3);
+hemiLight.position.set(100, 100, 0);
+scene.add(hemiLight);
+
+// 平行光源
+const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+dirLight.position.set(5, 10, 7.5);
+dirLight.castShadow = true;
+dirLight.shadow.camera.top = 10;
+dirLight.shadow.camera.bottom = -10;
+dirLight.shadow.camera.left = -10;
+dirLight.shadow.camera.right = 10;
+dirLight.shadow.camera.near = 0.1;
+dirLight.shadow.camera.far = 40;
+scene.add(dirLight);
+
+// 地面
+const groundGeometry = new THREE.PlaneGeometry(100, 100);
+const groundMaterial = new THREE.MeshLambertMaterial({
+  color: 0xffffff,
+  depthWrite: false,
+});
+const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -1;
+// 接收阴影
+ground.receiveShadow = true;
+scene.add(ground);
 
 const clock = new THREE.Clock();
 let mixer = null;
@@ -34,13 +67,19 @@ let globalGltf = ref(null);
 new GLTFLoader().load(
   "./worker.glb",
   function (gltf) {
+    const model = gltf.scene;
     globalGltf.value = gltf;
     // 正面翻转
-    gltf.scene.position.y = -1;
-    scene.add(gltf.scene);
+    model.position.y = -1;
+    // 开启阴影
 
+    model.traverse(function (object) {
+      if (object.isMesh) object.castShadow = true;
+    });
+
+    scene.add(model);
     // //  加载骨骼动作动画模型
-    mixer = new THREE.AnimationMixer(gltf.scene);
+    mixer = new THREE.AnimationMixer(model);
     // mixer.clipAction(gltf.animations[1]).play();
   },
   undefined,
@@ -205,6 +244,8 @@ function animate() {
   }
 
   orbitControls.update();
+
+  // 动画更新
   if (mixer) {
     mixer.update(clock.getDelta());
   }
