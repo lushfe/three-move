@@ -32,7 +32,7 @@ const clock = new THREE.Clock();
 let mixer = null;
 let globalGltf = ref(null);
 new GLTFLoader().load(
-  "/worker.glb",
+  "./worker.glb",
   function (gltf) {
     globalGltf.value = gltf;
     // 正面翻转
